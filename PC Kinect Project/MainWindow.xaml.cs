@@ -650,5 +650,12 @@ namespace FallRecognition
         }
 
         #endregion fall evaluation
+
+        private void button2_Click(object sender, RoutedEventArgs e)
+        {
+            angleSliderPanel asp = new angleSliderPanel(nui);
+            asp.ShowDialog();
+
+        }
     }
 }
