@@ -367,15 +367,31 @@ namespace FallRecognition
             float depthX, depthY;
 
             nui.SkeletonEngine.SkeletonToDepthImage(joint.Position, out depthX, out depthY);
-        // Convert to 320, 240 space
+            // Convert to 320, 240 space
             depthX = depthX * 320;
             depthY = depthY * 240;
             int colorX, colorY;
             ImageViewArea iv = new ImageViewArea();
-        // Only ImageResolution.Resolution640x480 is supported at this point
+            // Only ImageResolution.Resolution640x480 is supported at this point
             nui.NuiCamera.GetColorPixelCoordinatesFromDepthPixel(ImageResolution.Resolution640x480, iv, (int)depthX, (int)depthY, (short)0, out colorX, out colorY);
 
-        // Map back to skeletonCanvas.Width & skeletonCanvas.Height
+            // Map back to skeletonCanvas.Width & skeletonCanvas.Height
+            return new Point((int)(skeletonCanvas.Width * colorX / 640.0), (int)(skeletonCanvas.Height * colorY / 480));
+        }
+        private Point getDisplayPosition(Microsoft.Research.Kinect.Nui.Vector mainPoint)
+        {
+            float depthX, depthY;
+
+            nui.SkeletonEngine.SkeletonToDepthImage(mainPoint, out depthX, out depthY);
+            // Convert to 320, 240 space
+            depthX = depthX * 320;
+            depthY = depthY * 240;
+            int colorX, colorY;
+            ImageViewArea iv = new ImageViewArea();
+            // Only ImageResolution.Resolution640x480 is supported at this point
+            nui.NuiCamera.GetColorPixelCoordinatesFromDepthPixel(ImageResolution.Resolution640x480, iv, (int)depthX, (int)depthY, (short)0, out colorX, out colorY);
+
+            // Map back to skeletonCanvas.Width & skeletonCanvas.Height
             return new Point((int)(skeletonCanvas.Width * colorX / 640.0), (int)(skeletonCanvas.Height * colorY / 480));
         }
 
@@ -402,9 +418,9 @@ namespace FallRecognition
             Dispatcher.BeginInvoke((Action)delegate
             {
                 if (colorImage.Width != 0) {
-                    for (int i = 0; i < ColoredBytes.Length / 4; i++)
-                        if (ColoredBytes[i * 4] > 100) ;
-//                            colorImage.Bits[i * 16] = colorImage.Bits[i * 16+1] = colorImage.Bits[i * 16+2] = 0;
+/*                    for (int i = 0; i < ColoredBytes.Length / 4; i++)
+                        if (ColoredBytes[i * 4] > 100)
+                            colorImage.Bits[i * 16] = colorImage.Bits[i * 16+1] = colorImage.Bits[i * 16+2] = 0;*/
                     imgCamera.Source = BitmapSource.Create(
                         colorImage.Width, colorImage.Height, 194, 194, PixelFormats.Bgr32, null, colorImage.Bits, colorImage.Width * colorImage.BytesPerPixel);
                 }
@@ -416,6 +432,15 @@ namespace FallRecognition
                 {
                     if (SkeletonTrackingState.Tracked == data.TrackingState)
                     {
+
+                        // MICHI: Draw lines to help
+
+                        Microsoft.Research.Kinect.Nui.Vector v1 = data.Joints[JointID.Head].Position;
+                        Microsoft.Research.Kinect.Nui.Vector v2 = data.Joints[JointID.Head].Position;
+                        v1.Y = -1; v2.Y = 1;
+                        Point p1 = getDisplayPosition(v1);
+                        Point p2 = getDisplayPosition(v2);
+                        DrawLimb(p1, p2);
 
                         #region Draw skeletonCanvas points
                         Point head = getDisplayPosition(data.Joints[JointID.Head]);

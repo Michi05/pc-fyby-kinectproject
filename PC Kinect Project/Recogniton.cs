@@ -55,56 +55,42 @@ namespace FallRecognition
          
 
             // If first headDistance is greater or equal than the product between the current one and the standPoseFactor (1.1)
-            if (!(recognitionHeadDistance < standPoseFactor * currentHeadDistance))
-                if (joints[JointID.HandLeft].Position.Y > joints[JointID.Head].Position.Y || joints[JointID.HandRight].Position.Y > joints[JointID.Head].Position.Y)
-                { // Raising at least one hand // MICHI: I CHANGED this so it detects both-hand risings and not only the first checked.
-                    if (joints[JointID.HandLeft].Position.Y < joints[JointID.Head].Position.Y)
-                        result = "Raising right hand";
-                    else if (joints[JointID.HandRight].Position.Y < joints[JointID.Head].Position.Y)
-                        result = "Raising left hand";
-                    else
-                        result = "Raising BOTH hands";
-                }
+//            if (!(recognitionHeadDistance < standPoseFactor * currentHeadDistance))
+            if (joints[JointID.HandLeft].Position.Y > joints[JointID.Head].Position.Y || joints[JointID.HandRight].Position.Y > joints[JointID.Head].Position.Y)
+            { // Raising at least one hand // MICHI: I CHANGED this so it detects both-hand risings and not only the first checked.
+                if (joints[JointID.HandLeft].Position.Y < joints[JointID.Head].Position.Y)
+                    result = "Raising right hand";
+                else if (joints[JointID.HandRight].Position.Y < joints[JointID.Head].Position.Y)
+                    result = "Raising left hand";
                 else
-                {
-                    // If the angle is in the confidence interval
-                    if (Math.Abs(rightAngle - leftAngle) < confidenceAngle)
-                    {
-                        double angle;
-                        if (!isAutomaticChoiceAngle)
-                            angle = (rightAngle + leftAngle) / 2;
-                        else
-                        {
-                        // Get distance to both solders
-                            double shLD = vectorNorm(joints[JointID.ShoulderLeft].Position.X, joints[JointID.ShoulderLeft].Position.Y,
-                                joints[JointID.ShoulderLeft].Position.Z);
-                            double shRD = vectorNorm(joints[JointID.ShoulderRight].Position.X, joints[JointID.ShoulderRight].Position.Y,
-                               joints[JointID.ShoulderRight].Position.Z);
-                        // The nearest shoulder's angle is the one taken into account
-                            if (shLD > shRD)
-                                angle = rightAngle;
-                            else
-                                angle = leftAngle;
-                        }
-                    // angleShift (30) is substracted from the 3 angles
-                        angle -= angleShift;
-                        leftAngle -= angleShift; // MICHI: these are not used anymore?
-                        rightAngle -= angleShift;
-                        result = RecognizeSittingPoseByAngle(angle);
-                    }
-                    else
-                        result = "Undefined sitting pose";
-
-                }
+                    result = "Raising BOTH hands";
+            }
             else
-            { // ELSE, if first headDistance lower than...
-                if (joints[JointID.WristLeft].Position.Y > joints[JointID.Head].Position.Y || joints[JointID.WristRight].Position.Y > joints[JointID.Head].Position.Y)
-                    result = "Raising ¿UNKNOWN? hand";
+            {
+                // If the angle is in the confidence interval
+                if (Math.Abs(rightAngle - leftAngle) < confidenceAngle)
+                {
+                    double angle;
+                    if (!isAutomaticChoiceAngle)
+                        angle = (rightAngle + leftAngle) / 2;
+                    else
+                    {
+                        // Get distance to both solders
+                        double shLD = vectorNorm(joints[JointID.ShoulderLeft].Position.X, joints[JointID.ShoulderLeft].Position.Y,
+                            joints[JointID.ShoulderLeft].Position.Z);
+                        double shRD = vectorNorm(joints[JointID.ShoulderRight].Position.X, joints[JointID.ShoulderRight].Position.Y,
+                           joints[JointID.ShoulderRight].Position.Z);
+                        // The nearest shoulder's angle is the one taken into account
+                        if (shLD > shRD)
+                            angle = rightAngle;
+                        else
+                            angle = leftAngle;
+                    }
+                    result = "Sitting pose... somehow";
+                }
                 else
                     result = "Standing pose";
             }
-
-
             return result;
 
         }
@@ -188,27 +174,6 @@ namespace FallRecognition
             return angle;
         }
 
-        // RecognizeSittingPoseByAngle 
-        /// <summary>
-        ///  RecognizeSittingPoseByAngle
-        ///  0 ~ 40	down	sleeping
-        ///  40~80	down	non-concentrating
-        ///  80~100	down	concentrating
-        ///  	up	raising hand
-        /// </summary>
-        /// <param name="angle">angle between vectors HipShoulder and KneeShoulder</param>
-        /// <returns></returns>
-        public static string RecognizeSittingPoseByAngle(double angle)
-        {
-            string result = null;
-            if (angle < 40)
-                result = "Sleeping";
-            if (40 < angle && angle < 80 || 100 < angle && angle < 180)
-                result = "Non concentrating";
-            if (80 <= angle && angle <= 100)
-                result = "Concentrating";
-            return result;
-        }
         /// <summary>
         /// Euclidean norm of 3-component Vector
         /// </summary>
