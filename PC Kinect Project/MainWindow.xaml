@@ -1,0 +1,17 @@
+﻿<Window x:Class="FallRecognition.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="User tracking with Microsoft SDK" Height="600" Width="862" Loaded="Window_Loaded" DataContext="{Binding}">
+    <DockPanel LastChildFill="True">
+        
+        <StatusBar Name="statusBar"  MinHeight="40" DockPanel.Dock="Bottom">
+            <StatusBarItem>
+                <TextBlock Name="textBlock" Background="LemonChiffon" FontSize='10'> Ready </TextBlock>
+            </StatusBarItem>
+        </StatusBar>
+        <Grid DockPanel.Dock="Top">
+            <Image Name="imgCamera" Width="820" ClipToBounds="True" Margin="10,0" />
+            <Canvas Width="820" Height="510" Name="skeletonCanvas"   ClipToBounds="True"/>
+        </Grid>
+    </DockPanel>
+</Window>
