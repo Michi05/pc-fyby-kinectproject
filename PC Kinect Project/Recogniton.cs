@@ -34,9 +34,16 @@ namespace FallRecognition
 
             rightAngle = CalculateAngle(joints[JointID.ShoulderLeft], joints[JointID.HipRight], joints[JointID.KneeRight]);
             leftAngle = CalculateAngle(joints[JointID.ShoulderRight], joints[JointID.HipLeft], joints[JointID.KneeLeft]);
+
         // MICHI: New vble addings:
-//            bodyFloorAngle = CalculateAngle(joints[JointID.Spine], joints[JointID.HipCenter]); // Precision can be improved with (spine+head, hipleft+hipright+hipcenter) combinations
-            bodyFloorAngle = RotateX((float)0.0, joints[JointID.Head]).Y;
+            List<Joint> highJoints = new List<Joint>();
+            highJoints.Add(joints[JointID.Spine]);
+            highJoints.Add(joints[JointID.HipCenter]);
+            List<Joint> lowJoints = new List<Joint>();
+            lowJoints.Add(joints[JointID.KneeLeft]);
+            lowJoints.Add(joints[JointID.KneeRight]);
+            bodyFloorAngle = CalculateAngle(highJoints, lowJoints);
+//            bodyFloorAngle = RotateX((float)0.0, joints[JointID.Head]).Y;
         // If a knee is too high it can mean that the person is sitting or fallen or something else.
         //the more negative value is the most interesting since it doesn't mean anything if it is positive.
             hipsKneesHigh = joints[JointID.HipRight].Position.Y - joints[JointID.KneeRight].Position.Y;
@@ -158,6 +165,39 @@ namespace FallRecognition
                 angle = 0;
             return angle;
         }
+
+        private static double CalculateAngle(List<Joint> highJoints, List<Joint> lowJoints)
+        {
+            Vector highVec = new Vector();
+            Vector lowVec = new Vector();
+            highVec.X = highVec.Y = highVec.Z = 0;
+            for (int i = 0; i < highJoints.Count; i++)
+            {
+                highVec.X += highJoints[i].Position.X;
+                highVec.Y += highJoints[i].Position.Y;
+                highVec.Z += highJoints[i].Position.Z;
+            }
+            highVec.X /= highJoints.Count;
+            highVec.Y /= highJoints.Count;
+            highVec.Z /= highJoints.Count;
+
+            lowVec.X = lowVec.Y = lowVec.Z = 0;
+            for (int i = 0; i < lowJoints.Count; i++)
+            {
+                lowVec.X += lowJoints[i].Position.X;
+                lowVec.Y += lowJoints[i].Position.Y;
+                lowVec.Z += lowJoints[i].Position.Z;
+            }
+            lowVec.X /= lowJoints.Count;
+            lowVec.Y /= lowJoints.Count;
+            lowVec.Z /= lowJoints.Count;
+
+//            return vectorNorm(highVec.X - lowVec.X, highVec.Y - lowVec.Y, highVec.Z - lowVec.Z);
+            return (highVec.Y - lowVec.Y);
+        }
+
+
+
         // MICHI: New method in case we use the body-floor angle
         /// <summary>
         /// Calculate angle between high-low vector and the floor
@@ -166,18 +206,12 @@ namespace FallRecognition
         /// <param name="shoulder">high reference point</param>
         /// <param name="hip">low reference point</param>
         /// <returns></returns>
-        public static double CalculateAngle(Joint high, Joint low)
-        { // MICHI: Would be better to use the line-plane distance, just need to search if we finally use this
-            if (high.Position.Y < low.Position.Y)
-            { // Ensure that high-low is really high-low and not low-high
-                Joint aux = low;
-                low = high;
-                high = aux;
-            }
+        public static double CalculateAngle(Vector high, Vector low)
+        {
             double angle = 0;
-            double vecX = high.Position.X - low.Position.X;
-            double vecY = high.Position.Y - low.Position.Y;
-            double vecZ = high.Position.Z - low.Position.Z;
+            double vecX = high.X - low.X;
+            double vecY = high.Y - low.Y;
+            double vecZ = high.Z - low.Z;
             double hsl = vectorNorm(vecX, vecY, vecZ);
             // The floor vector for this version is the vertical proyection of the body on the floor so it should be the minimized distance
             double floorX = vecX;
