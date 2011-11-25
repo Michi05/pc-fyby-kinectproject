@@ -91,8 +91,36 @@ namespace FallRecognition
                 else
                     result = "Standing pose";
             }
+
+            result = result + calculatePercentage(joints);
+
             return result;
 
+        }
+
+        private static string calculatePercentage(JointsCollection joints)
+        {
+            double percentage = 0;
+            List<Joint> myJoints = new List<Joint>();
+            myJoints.Add(joints[JointID.HipCenter]);
+            myJoints.Add(joints[JointID.HipLeft]);
+            myJoints.Add(joints[JointID.HipRight]);
+            myJoints.Add(joints[JointID.ElbowLeft]);
+            myJoints.Add(joints[JointID.ElbowRight]);
+            myJoints.Add(joints[JointID.ShoulderCenter]);
+            myJoints.Add(joints[JointID.ShoulderRight]);
+            myJoints.Add(joints[JointID.ShoulderLeft]);
+            myJoints.Add(joints[JointID.Spine]);
+            myJoints.Add(joints[JointID.Head]);
+
+            for (int i=0; i< myJoints.Count; i++)
+                if (myJoints[i].Position.Y < -0.5)
+                    percentage += ((double)100)/myJoints.Count;
+            // MICHI: We need to add weights above (the head is not supposed to be in the floor but the hips may be)
+            //and 2 levels of high.
+
+            string result = "Falling probability = " + percentage.ToString() + "%.";
+            return result;
         }
 
         /// <summary>
@@ -186,7 +214,7 @@ namespace FallRecognition
             return Math.Sqrt(Math.Pow(x, 2) + Math.Pow(y, 2) + Math.Pow(z, 2));
         }
 
-        // TODO: Rename the following:
+        // TODO: Recheck the following region:
 
         #region Rotation
 
@@ -198,10 +226,6 @@ namespace FallRecognition
             iniCoords.X = joint.Position.X;
             iniCoords.Y = joint.Position.Y;
             iniCoords.Z = joint.Position.Z;
-
-            double res1 = iniCoords.Y * Math.Cos(radAngle);
-            double res2 = iniCoords.Z * Math.Sin(radAngle);
-            double result = res1 + res2;
 
             // MICHI: BEWARE OF THIS, the double-float conversion is not really checked and there could be missing information... unimportant?
             newCoords.X = joint.Position.X;
