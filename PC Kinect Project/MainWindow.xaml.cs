@@ -42,8 +42,8 @@ namespace FallRecognition
         BackgroundWorker _worker = new BackgroundWorker();
         Runtime nui; //Kinect Runtime
         PlanarImage colorImage = new PlanarImage();
-        ImageFrame depthImageFrame = new ImageFrame();
-        byte[] ColoredBytes;
+        ImageFrame currentDepthImageFrame = new ImageFrame();
+        byte[] initialColors, initialDepthMatrix, currentDepthMatrix;
 
         double recognitionHeadDistance = 0;
         DateTime lastTime = DateTime.MaxValue;
@@ -89,7 +89,7 @@ namespace FallRecognition
 
         private void Window_Closed(object sender, EventArgs e)
         {
-            // Cleanup // MICHI: this is important, watch out
+            // Cleanup
             nui.Uninitialize();
             Environment.Exit(0);
         }
@@ -107,8 +107,8 @@ namespace FallRecognition
             //Use to transform and reduce jitter
             var parameters = new TransformSmoothParameters
             {
-                Smoothing = 0.75f, //0.5f, //0.75f
-                Correction = 0.0f, //0.5f, //0.0f
+                Smoothing = 0.5f, //0.75f
+                Correction = 0.25f, //0.5f, //0.0f
                 Prediction = 0.05f, //0.0f
                 JitterRadius = 0.70f, //0.05f
                 MaxDeviationRadius = 0.1f //0.05f //0.04f
@@ -125,8 +125,7 @@ namespace FallRecognition
                 return;
             }
             else
-            { // MICHI: If there are Kinects, the setup begins
-
+            { // If there are Kinects, the setup begins
                 // Use first Kinect
                 nui = Runtime.Kinects[0];
                 CompositionTarget.Rendering += new EventHandler(CompositionTarget_Rendering);
@@ -161,7 +160,7 @@ namespace FallRecognition
                 nui.SkeletonFrameReady += new EventHandler<SkeletonFrameReadyEventArgs>(nui_SkeletonFrameReady);
                 nui.VideoFrameReady += new EventHandler<ImageFrameReadyEventArgs>(nui_ColorFrameReady);
                 // _worker.DoWork += new DoWorkEventHandler(_worker_DoWork);
-                nui.DepthFrameReady += new EventHandler<ImageFrameReadyEventArgs>(nui_DepthFrameReady);
+                nui.DepthFrameReady += new EventHandler<ImageFrameReadyEventArgs>(nui_FirstDepthFrame);
 
                 logTimeChecker = lastTime = DateTime.Now;
                 LogMessageToFile(System.String.Format(
@@ -196,111 +195,42 @@ namespace FallRecognition
 
         #region depth
 
-        void nui_DepthFrameReady(object sender, ImageFrameReadyEventArgs e)
+        void nui_FirstDepthFrame(object sender, ImageFrameReadyEventArgs e)
         {
-            //Convert depth information for a pixel into color information
-            ColoredBytes = GenerateMonocoloredBytes(e.ImageFrame);
+            nui.DepthFrameReady -= new EventHandler<ImageFrameReadyEventArgs>(nui_FirstDepthFrame);
 
-            depthImageFrame = e.ImageFrame;
+            Byte[] initialDepth = (byte[])(e.ImageFrame.Image.Bits.Clone());
+            //Convert depth information for a pixel into color information
+            initialColors = GenerateMonocoloredBytes(e.ImageFrame);
+
+            currentDepthImageFrame = e.ImageFrame;
+            initialDepthMatrix = GenerateDepthBytes(e.ImageFrame);
+            currentDepthMatrix = GenerateDepthBytes(e.ImageFrame);
+
+
+            nui.DepthFrameReady += new EventHandler<ImageFrameReadyEventArgs>(nui_DepthFrameReady);
+
+            
 
             // This is the layout image for depth, I don't need it
             //            image1.Source = BitmapSource.Create(image.Width, image.Height, 96, 96, PixelFormats.Bgr32, null,
             //                ColoredBytes, image.Width * PixelFormats.Bgr32.BitsPerPixel / 8);
         }
 
-        private byte[] GenerateColoredBytes(ImageFrame imageFrame)
+        void nui_DepthFrameReady(object sender, ImageFrameReadyEventArgs e)
         {
-            int height = imageFrame.Image.Height;
-            int width = imageFrame.Image.Width;
-
-            //Depth data for each pixel
-            Byte[] depthData = imageFrame.Image.Bits;
-
-
-            //colorFrame contains color information for all pixels in image
-            //Height x Width x 4 (Red, Green, Blue, empty byte)
-            Byte[] colorFrame = new byte[imageFrame.Image.Height * imageFrame.Image.Width * 4];
-
-            //Bgr32  - Blue, Green, Red, empty byte
-            //Bgra32 - Blue, Green, Red, transparency 
-            //You must set transparency for Bgra as .NET defaults a byte to 0 = fully transparent
-
-            //hardcoded locations to Blue, Green, Red (BGR) index positions       
-            const int BlueIndex = 0;
-            const int GreenIndex = 1;
-            const int RedIndex = 2;
-
-
-            var depthIndex = 0;
-            for (var y = 0; y < height; y++)
-            {
-
-                var heightOffset = y * width;
-
-                for (var x = 0; x < width; x++)
-                {
-
-                    var index = ((width - x - 1) + heightOffset) * 4;
-
-                    //var distance = GetDistance(depthData[depthIndex], depthData[depthIndex + 1]);
-                    var distance = GetDistanceWithPlayerIndex(depthData[depthIndex], depthData[depthIndex + 1]);
-
-                    if (distance <= 900)
-                    {
-                        //we are very close
-                        colorFrame[index + BlueIndex] = 255;
-                        colorFrame[index + GreenIndex] = 0;
-                        colorFrame[index + RedIndex] = 0;
-
-                    }
-                    else if (distance > 900 && distance < 2000)
-                    {
-                        //we are a bit further away
-                        colorFrame[index + BlueIndex] = 0;
-                        colorFrame[index + GreenIndex] = 255;
-                        colorFrame[index + RedIndex] = 0;
-                    }
-                    else if (distance > 2000)
-                    {
-                        //we are the farthest
-                        colorFrame[index + BlueIndex] = 0;
-                        colorFrame[index + GreenIndex] = 0;
-                        colorFrame[index + RedIndex] = 255;
-                    }
-
-
-                    ////equal coloring for monochromatic histogram
-                    //var intensity = CalculateIntensityFromDepth(distance);
-                    //colorFrame[index + BlueIndex] = intensity;
-                    //colorFrame[index + GreenIndex] = intensity;
-                    //colorFrame[index + RedIndex] = intensity;
-
-                    ////Color a player
-                    if (GetPlayerIndex(depthData[depthIndex]) > 0)
-                    {
-                        //we are the farthest
-                        colorFrame[index + BlueIndex] = 0;
-                        colorFrame[index + GreenIndex] = 255;
-                        colorFrame[index + RedIndex] = 255;
-                    }
-
-                    //jump two bytes at a time
-                    depthIndex += 2;
-                }
-            }
-
-            return colorFrame;
+            currentDepthImageFrame = e.ImageFrame;
+            currentDepthMatrix = GenerateDepthBytes(e.ImageFrame);
         }
-
         private byte[] GenerateMonocoloredBytes(ImageFrame imageFrame)
         {
             int height = imageFrame.Image.Height;
             int width = imageFrame.Image.Width;
 
             //Depth data for each pixel
-            Byte[] depthData = imageFrame.Image.Bits;
+            Byte[] depthRawData = imageFrame.Image.Bits;
 
-            //colorFrame contains color information for all pixels in image
+            //depthFrame contains color information for all pixels in image
             //Height x Width x 4 (Red, Green, Blue, empty byte)
             Byte[] colorFrame = new byte[height * width * 4];
 
@@ -317,7 +247,7 @@ namespace FallRecognition
                 {
                     var index = ((width - x - 1) + heightOffset) * 4;
 
-                    var distance = GetDistanceWithPlayerIndex(depthData[depthIndex], depthData[depthIndex + 1]);
+                    var distance = GetDistanceWithPlayerIndex(depthRawData[depthIndex], depthRawData[depthIndex + 1]);
 
                     // Equal coloring for monochromatic histogram
                     var intensity = CalculateIntensityFromDepth(distance);
@@ -331,13 +261,38 @@ namespace FallRecognition
             return colorFrame;
         }
 
-        private static int GetPlayerIndex(byte firstFrame)
+        private byte[] GenerateDepthBytes(ImageFrame imageFrame)
         {
-            //returns 0 = no player, 1 = 1st player, 2 = 2nd player...
-            //bitwise & on firstFrame
-            return (int)firstFrame & 7;
-        }
+            int height = imageFrame.Image.Height;
+            int width = imageFrame.Image.Width;
 
+            //Depth data for each pixel
+            Byte[] depthRawData = imageFrame.Image.Bits;
+
+            //depthFrame contains color information for all pixels in image
+            //Height x Width x 4 (Red, Green, Blue, empty byte)
+            Byte[] depthFrame = new byte[height * width];
+
+            var depthIndex = 0;
+            for (var y = 0; y < height; y++)
+            {
+                var heightOffset = y * width;
+                for (var x = 0; x < width; x++)
+                {
+                    var index = ((width - x - 1) + heightOffset); // MICHI: invertir? sale invertida la imagen por esto?
+
+                    var distance = GetDistanceWithPlayerIndex(depthRawData[depthIndex], depthRawData[depthIndex + 1]);
+
+                    // Equal coloring for monochromatic histogram
+                    depthFrame[index] = CalculateIntensityFromDepth(distance);
+
+                    //jump two bytes at a time
+                    depthIndex += 2;
+                }
+            }
+
+            return depthFrame;
+        }
 
         private int GetDistanceWithPlayerIndex(byte firstFrame, byte secondFrame)
         {
@@ -361,8 +316,6 @@ namespace FallRecognition
         #endregion depth
 
 
-
-        // MICHI: It turns that I wasn't really understanding this
         private Point getDisplayPosition(Joint joint)
         {
             float depthX, depthY;
@@ -379,6 +332,7 @@ namespace FallRecognition
             // Map back to skeletonCanvas.Width & skeletonCanvas.Height
             return new Point((int)(skeletonCanvas.Width * colorX / 640.0), (int)(skeletonCanvas.Height * colorY / 480));
         }
+
         private Point getDisplayPosition(Microsoft.Research.Kinect.Nui.Vector mainPoint)
         {
             float depthX, depthY;
@@ -434,11 +388,10 @@ namespace FallRecognition
                     if (SkeletonTrackingState.Tracked == data.TrackingState)
                     {
 
-                        // MICHI: Draw lines to help
-
+                        // MICHI: Draw lines to help development
                         Microsoft.Research.Kinect.Nui.Vector v1 = data.Joints[JointID.Head].Position;
                         Microsoft.Research.Kinect.Nui.Vector v2 = data.Joints[JointID.Head].Position;
-                        v1.Z = 800; v2.Z = 2000;
+                        v1.Y = (float)-1; v2.Y = (float)1;
                         Point p1 = getDisplayPosition(v1);
                         Point p2 = getDisplayPosition(v2);
                         DrawLimb(p1, p2);
@@ -546,8 +499,6 @@ namespace FallRecognition
         #endregion event handlers
 
         #region Private state
-        // MICHI: Stil not used:
-//        private int minKinectCount = 1;       //0 - app is "Kinect Enabled". 1 - app "Requires Kinect".
         const int maxKinectCount = 1; //Change to 1 if you only want to view one at a time. Switching will be enabled.
         //Each Kinect needs to be in its own USB hub, otherwise it won't have enough USB bandwidth.
         //Currently only 1 Kinect per process can have SkeletalTracking working, but color and depth work for all.
@@ -662,6 +613,12 @@ namespace FallRecognition
         private void button3_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
+        }
+
+        private void button1_Click(object sender, RoutedEventArgs e)
+        {
+            nui.DepthFrameReady -= new EventHandler<ImageFrameReadyEventArgs>(nui_DepthFrameReady);
+            nui.DepthFrameReady += new EventHandler<ImageFrameReadyEventArgs>(nui_FirstDepthFrame);
         }
     }
 }
