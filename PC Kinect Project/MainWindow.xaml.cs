@@ -438,7 +438,7 @@ namespace FallRecognition
 
                         Microsoft.Research.Kinect.Nui.Vector v1 = data.Joints[JointID.Head].Position;
                         Microsoft.Research.Kinect.Nui.Vector v2 = data.Joints[JointID.Head].Position;
-                        v1.Y = -1; v2.Y = 1;
+                        v1.Z = 800; v2.Z = 2000;
                         Point p1 = getDisplayPosition(v1);
                         Point p2 = getDisplayPosition(v2);
                         DrawLimb(p1, p2);
@@ -657,6 +657,11 @@ namespace FallRecognition
             angleSliderPanel asp = new angleSliderPanel(nui, kinectAngle);
             if (asp.ShowDialog().HasValue)
                 kinectAngle = (int)asp.selectedAngle;
+        }
+
+        private void button3_Click(object sender, RoutedEventArgs e)
+        {
+            this.Close();
         }
     }
 }

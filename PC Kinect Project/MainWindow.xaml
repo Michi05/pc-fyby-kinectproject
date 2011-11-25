@@ -14,7 +14,7 @@
             <Canvas Width="820" Height="510" Name="skeletonCanvas"   ClipToBounds="True"></Canvas>
             <Button Content="Update... Background?" Height="28" HorizontalAlignment="Left" Margin="365,592,0,20" Name="button1" VerticalAlignment="Top" Width="142" />
             <Button Content="Tilt Camera" Height="28" Name="button2" Width="142" Margin="65,592,633,20" Click="button2_Click" />
-            <Button Content="Close everything" Name="button3" Margin="665,592,65,20" />
+            <Button Content="Close everything" Name="button3" Margin="665,592,65,20" Click="button3_Click" />
         </Grid>
     </DockPanel>
 </Window>
