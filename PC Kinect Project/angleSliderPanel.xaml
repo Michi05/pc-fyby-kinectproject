@@ -3,7 +3,12 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="angleSliderPanel" Height="300" Width="300">
     <Grid>
-        <Slider Height="261" HorizontalAlignment="Left" Interval="1" IsSnapToTickEnabled="True" Margin="10,0,0,0" Maximum="27" Minimum="-27" Name="slider1" Orientation="Vertical" SmallChange="1" TickPlacement="TopLeft" VerticalAlignment="Top" Width="38" />
-        <Button Content="Button" Height="47" HorizontalAlignment="Left" Margin="89,106,0,0" Name="button1" VerticalAlignment="Top" Width="140" Click="button1_Click" />
+        <Grid.RowDefinitions>
+            <RowDefinition Height="149*" />
+            <RowDefinition Height="112*" />
+        </Grid.RowDefinitions>
+        <Slider Height="261" HorizontalAlignment="Left" Interval="1" IsSnapToTickEnabled="True" Margin="10,0,0,0" Maximum="27" Minimum="-27" Name="slider1" Orientation="Vertical" SmallChange="1" TickPlacement="TopLeft" VerticalAlignment="Top" Width="38" Grid.RowSpan="2" ValueChanged="slider1_ValueChanged" />
+        <Button Content="Change Angle" Height="47" HorizontalAlignment="Left" Margin="90,6,0,0" Name="button1" VerticalAlignment="Top" Width="140" Click="button1_Click" Grid.Row="1" />
+        <Label Content="0" Height="114" HorizontalAlignment="Left" Margin="81,19,0,0" Name="label1" VerticalAlignment="Top" Width="145" FontSize="72" FontStyle="Normal" FontWeight="Bold" HorizontalContentAlignment="Center" />
     </Grid>
 </Window>

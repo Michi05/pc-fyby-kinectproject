@@ -48,7 +48,8 @@ namespace FallRecognition
         double recognitionHeadDistance = 0;
         DateTime lastTime = DateTime.MaxValue;
         DateTime logTimeChecker = DateTime.MaxValue;
-        double KinectAngle = 0;
+        int kinectAngle = 0;
+        // double kinectAdditionalInclination = 0;
 
         // We want to control how depth data gets converted into false-color data
         // for more intuitive visualization, so we keep 32-bit color frame buffer versions of
@@ -653,9 +654,9 @@ namespace FallRecognition
 
         private void button2_Click(object sender, RoutedEventArgs e)
         {
-            angleSliderPanel asp = new angleSliderPanel(nui);
-            asp.ShowDialog();
-
+            angleSliderPanel asp = new angleSliderPanel(nui, kinectAngle);
+            if (asp.ShowDialog().HasValue)
+                kinectAngle = (int)asp.selectedAngle;
         }
     }
 }
