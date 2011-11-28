@@ -279,8 +279,7 @@ namespace FallRecognition
                 var heightOffset = y * width;
                 for (var x = 0; x < width; x++)
                 {
-                    var index = ((width - x - 1) + heightOffset); // MICHI: invertir? sale invertida la imagen por esto?
-
+                    var index = (x + heightOffset);
                     var distance = GetDistanceWithPlayerIndex(depthRawData[depthIndex], depthRawData[depthIndex + 1]);
 
                     // Equal coloring for monochromatic histogram
@@ -305,11 +304,27 @@ namespace FallRecognition
         const float MinDepthDistance = 850; // min value returned
         const float MaxDepthDistanceOffset = MaxDepthDistance - MinDepthDistance;
 
-        public static byte CalculateIntensityFromDepth(int distance)
+        private byte CalculateIntensityFromDepth(int distance)
         {
             //formula for calculating monochrome intensity for histogram
             return (byte)(255 - (255 * Math.Max(distance - MinDepthDistance, 0)
                 / (MaxDepthDistanceOffset)));
+        }
+
+        private void eraseBackground(int bpp, int colorImageLength, PlanarImage depthImage)
+        {
+            for (int i = 0; i < colorImageLength; i++)
+            {
+                int x = i % colorImage.Width;
+                int y = i / colorImage.Width;
+                // Escalado // Resize :
+                x = (int)(x * ((double)depthImage.Width / colorImage.Width));
+                y = (int)(y * ((double)depthImage.Height / colorImage.Height));
+                int index = y * depthImage.Width + x;
+
+                if ((currentDepthMatrix[index] < initialDepthMatrix[index] + 20) && (currentDepthMatrix[index] > initialDepthMatrix[index] - 20))
+                    colorImage.Bits[i * bpp] = colorImage.Bits[i * bpp + 1] = colorImage.Bits[i * bpp + 2] = 0;
+            }
         }
 
 
@@ -372,10 +387,9 @@ namespace FallRecognition
         {
             Dispatcher.BeginInvoke((Action)delegate
             {
-                if (colorImage.Width != 0) {
-/*                    for (int i = 0; i < ColoredBytes.Length / 4; i++)
-                        if (ColoredBytes[i * 4] > 100)
-                            colorImage.Bits[i * 16] = colorImage.Bits[i * 16+1] = colorImage.Bits[i * 16+2] = 0;*/
+                if (currentDepthMatrix != null && colorImage.Width != 0)
+                {
+//                    eraseBackground(colorImage.BytesPerPixel, colorImage.Height * colorImage.Width, currentDepthImageFrame.Image);
                     imgCamera.Source = BitmapSource.Create(
                         colorImage.Width, colorImage.Height, 194, 194, PixelFormats.Bgr32, null, colorImage.Bits, colorImage.Width * colorImage.BytesPerPixel);
                 }
@@ -387,14 +401,6 @@ namespace FallRecognition
                 {
                     if (SkeletonTrackingState.Tracked == data.TrackingState)
                     {
-
-                        // MICHI: Draw lines to help development
-                        Microsoft.Research.Kinect.Nui.Vector v1 = data.Joints[JointID.Head].Position;
-                        Microsoft.Research.Kinect.Nui.Vector v2 = data.Joints[JointID.Head].Position;
-                        v1.Y = (float)-1; v2.Y = (float)1;
-                        Point p1 = getDisplayPosition(v1);
-                        Point p2 = getDisplayPosition(v2);
-                        DrawLimb(p1, p2);
 
                         #region Draw skeletonCanvas points
                         Point head = getDisplayPosition(data.Joints[JointID.Head]);
@@ -420,7 +426,9 @@ namespace FallRecognition
                         Point rightFoot = getDisplayPosition(data.Joints[JointID.FootRight]);
 
                         Color userColor = new Color();
-                        userColor = Color.FromRgb(255, 0, 0);
+                        Color fallenColor = new Color();
+                        userColor = Color.FromRgb(0, 0, 255);
+                        fallenColor = Color.FromRgb(255, 0, 0);
                         DrawCircle(head, userColor);
                         DrawCircle(neck, userColor);
                         DrawCircle(leftShoulder, userColor);
@@ -528,20 +536,21 @@ namespace FallRecognition
                 Height = 5,
                 Margin = new Thickness(A.X, A.Y, 0, 0)
             };
-
             skeletonCanvas.Children.Add(ellipse);
         }
         void DrawLimb(Point A, Point B)
         {
+            double limit = 350; // Between 250 and 500??
             Line line = new Line();
             line.X1 = A.X;
             line.Y1 = A.Y;
             line.X2 = B.X;
             line.Y2 = B.Y;
             line.StrokeThickness = 4;
-            line.Stroke = Brushes.LightGreen;
-
-
+            if (A.Y > limit && B.Y > limit)
+                line.Stroke = Brushes.Red;
+            else
+                line.Stroke = Brushes.LightGreen;
 
             skeletonCanvas.Children.Add(line);
 
