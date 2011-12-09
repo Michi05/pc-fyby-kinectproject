@@ -8,7 +8,11 @@
             <RowDefinition Height="112*" />
         </Grid.RowDefinitions>
         <Slider Height="261" HorizontalAlignment="Left" Interval="1" IsSnapToTickEnabled="True" Margin="10,0,0,0" Maximum="27" Minimum="-27" Name="slider1" Orientation="Vertical" SmallChange="1" TickPlacement="TopLeft" VerticalAlignment="Top" Width="38" Grid.RowSpan="2" ValueChanged="slider1_ValueChanged" />
-        <Button Content="Change Angle" Height="47" HorizontalAlignment="Left" Margin="90,6,0,0" Name="button1" VerticalAlignment="Top" Width="140" Click="button1_Click" Grid.Row="1" />
-        <Label Content="0" Height="114" HorizontalAlignment="Left" Margin="81,19,0,0" Name="label1" VerticalAlignment="Top" Width="145" FontSize="72" FontStyle="Normal" FontWeight="Bold" HorizontalContentAlignment="Center" />
+        <Button Content="Change Angle" Height="47" HorizontalAlignment="Left" Margin="86,41,0,0" Name="button1" VerticalAlignment="Top" Width="140" Click="button1_Click" Grid.Row="1" />
+        <Label Content="0" Height="114" HorizontalAlignment="Left" Margin="12,56,0,0" Name="label1" VerticalAlignment="Top" Width="140" FontSize="72" FontStyle="Normal" FontWeight="Bold" HorizontalContentAlignment="Center" Grid.RowSpan="2" />
+        <Label Content="Camera Inclination + Base Inclination:" Height="28" HorizontalAlignment="Left" Margin="43,33,0,0" Name="label2" VerticalAlignment="Top" />
+        <Label Content="+" Height="74" FontSize="48" HorizontalAlignment="Left" Margin="123,82,0,0" Name="label3" VerticalAlignment="Top" Grid.RowSpan="2" Width="68" />
+        <TextBox Height="46" HorizontalAlignment="Center" Margin="183,101,26,2" Name="textBox1" VerticalAlignment="Center" Width="69" Text="0" FontSize="32" HorizontalContentAlignment="Center" TextAlignment="Center" VerticalContentAlignment="Bottom" VerticalScrollBarVisibility="Disabled" MaxLength="2" />
+        <TreeView Grid.RowSpan="2" Height="200" HorizontalAlignment="Left" Margin="-146,31,0,0" Name="treeView1" VerticalAlignment="Top" Width="120" />
     </Grid>
 </Window>

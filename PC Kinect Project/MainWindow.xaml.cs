@@ -43,13 +43,15 @@ namespace FallRecognition
         Runtime nui; //Kinect Runtime
         PlanarImage colorImage = new PlanarImage();
         ImageFrame currentDepthImageFrame = new ImageFrame();
-        byte[] initialColors, initialDepthMatrix, currentDepthMatrix;
+        byte[] initialMaxDepthMatrix, initialMinDepthMatrix, currentDepthMatrix;
 
         double recognitionHeadDistance = 0;
         DateTime lastTime = DateTime.MaxValue;
         DateTime logTimeChecker = DateTime.MaxValue;
-        int kinectAngle = 0;
+        int kinectAngle = 0; int depthTrainingImages = 0;
         // double kinectAdditionalInclination = 0;
+
+        DebugWindow dW = new DebugWindow();
 
         // We want to control how depth data gets converted into false-color data
         // for more intuitive visualization, so we keep 32-bit color frame buffer versions of
@@ -85,6 +87,7 @@ namespace FallRecognition
         private void Window_Loaded(object sender, EventArgs e)
         {
             SetupKinect();
+            dW.Show();
         }
 
         private void Window_Closed(object sender, EventArgs e)
@@ -195,26 +198,52 @@ namespace FallRecognition
 
         #region depth
 
+        // "nui_FirstDepthFrame" reads the first image to first prepare the background segmentation
         void nui_FirstDepthFrame(object sender, ImageFrameReadyEventArgs e)
         {
             nui.DepthFrameReady -= new EventHandler<ImageFrameReadyEventArgs>(nui_FirstDepthFrame);
 
-            Byte[] initialDepth = (byte[])(e.ImageFrame.Image.Bits.Clone());
-            //Convert depth information for a pixel into color information
-            initialColors = GenerateMonocoloredBytes(e.ImageFrame);
+            // Disable the calibration button while calibrating and reset counter
+            button1.IsEnabled = false;
+            depthTrainingImages = 0;
 
             currentDepthImageFrame = e.ImageFrame;
-            initialDepthMatrix = GenerateDepthBytes(e.ImageFrame);
+            initialMaxDepthMatrix = GenerateDepthBytes(e.ImageFrame);
+            initialMinDepthMatrix = GenerateDepthBytes(e.ImageFrame);
             currentDepthMatrix = GenerateDepthBytes(e.ImageFrame);
 
 
-            nui.DepthFrameReady += new EventHandler<ImageFrameReadyEventArgs>(nui_DepthFrameReady);
+            nui.DepthFrameReady += new EventHandler<ImageFrameReadyEventArgs>(nui_DepthConfigStage);
+        }
 
-            
+        // "nui_DepthConfigStage" reads the first 100 images and keeps the greater and the lower depth values for the background segmentation
+        void nui_DepthConfigStage(object sender, ImageFrameReadyEventArgs e)
+        {
+            currentDepthMatrix = GenerateDepthBytes(e.ImageFrame);
+            currentDepthImageFrame = e.ImageFrame;
 
-            // This is the layout image for depth, I don't need it
-            //            image1.Source = BitmapSource.Create(image.Width, image.Height, 96, 96, PixelFormats.Bgr32, null,
-            //                ColoredBytes, image.Width * PixelFormats.Bgr32.BitsPerPixel / 8);
+            #region updateMiniMaxValues
+            int matrixLength = currentDepthMatrix.Length;
+
+            for (var i = 0; i < matrixLength; i++)
+            {
+                if (currentDepthMatrix[i] > initialMaxDepthMatrix[i])
+                    initialMaxDepthMatrix[i] = currentDepthMatrix[i];
+                else if (currentDepthMatrix[i] < initialMinDepthMatrix[i])
+                    initialMinDepthMatrix[i] = currentDepthMatrix[i];
+            }
+
+            #endregion updateMiniMaxValues
+
+
+            if (++depthTrainingImages > 99)
+            {
+                nui.DepthFrameReady -= new EventHandler<ImageFrameReadyEventArgs>(nui_DepthConfigStage);
+                // Enable the calibration button after calibrating
+                button1.IsEnabled = true;
+                nui.DepthFrameReady += new EventHandler<ImageFrameReadyEventArgs>(nui_DepthFrameReady);
+            }
+
         }
 
         void nui_DepthFrameReady(object sender, ImageFrameReadyEventArgs e)
@@ -322,9 +351,14 @@ namespace FallRecognition
                 y = (int)(y * ((double)depthImage.Height / colorImage.Height));
                 int index = y * depthImage.Width + x;
 
-                if ((currentDepthMatrix[index] < initialDepthMatrix[index] + 20) && (currentDepthMatrix[index] > initialDepthMatrix[index] - 20))
-                    colorImage.Bits[i * bpp] = colorImage.Bits[i * bpp + 1] = colorImage.Bits[i * bpp + 2] = 0;
+                if ((currentDepthMatrix[index] < 15) || ((currentDepthMatrix[index] < initialMaxDepthMatrix[index] + 10) && (currentDepthMatrix[index] > initialMinDepthMatrix[index] - 10)))
+                {
+//                    colorImage.Bits[i * bpp] = colorImage.Bits[i * bpp + 1] = colorImage.Bits[i * bpp + 2] = 0;
+                    currentDepthMatrix[index]=0;
+                }
             }
+            dW.debugImage.Source = BitmapSource.Create(320, 240, 96, 96, PixelFormats.Gray8, null,
+                            currentDepthMatrix, 320 * PixelFormats.Gray8.BitsPerPixel / 8);
         }
 
 
@@ -354,7 +388,7 @@ namespace FallRecognition
 
             nui.SkeletonEngine.SkeletonToDepthImage(mainPoint, out depthX, out depthY);
             // Convert to 320, 240 space
-            depthX = depthX * 320;
+            depthX = depthX * 320; // MICHI: WATCH OUT HERE!!!! this are the depth X/Y coordinates first in the 0-1 interval
             depthY = depthY * 240;
             int colorX, colorY;
             ImageViewArea iv = new ImageViewArea();
@@ -389,9 +423,12 @@ namespace FallRecognition
             {
                 if (currentDepthMatrix != null && colorImage.Width != 0)
                 {
-//                    eraseBackground(colorImage.BytesPerPixel, colorImage.Height * colorImage.Width, currentDepthImageFrame.Image);
+                    eraseBackground(colorImage.BytesPerPixel, colorImage.Height * colorImage.Width, currentDepthImageFrame.Image);
                     imgCamera.Source = BitmapSource.Create(
-                        colorImage.Width, colorImage.Height, 194, 194, PixelFormats.Bgr32, null, colorImage.Bits, colorImage.Width * colorImage.BytesPerPixel);
+                      colorImage.Width, colorImage.Height, 194, 194, PixelFormats.Bgr32, null, colorImage.Bits, colorImage.Width * colorImage.BytesPerPixel);
+                    //imgCamera.Source = BitmapSource.Create(currentDepthImageFrame.Image.Width, currentDepthImageFrame.Image.Height, 96, 96, PixelFormats.Bgr32, null,
+                    //  currentDepthMatrix, currentDepthImageFrame.Image.Width * PixelFormats.Bgr32.BitsPerPixel / 8);
+                    
                 }
                 
                 SkeletonFrame allSkeletons = e.SkeletonFrame;
@@ -540,7 +577,7 @@ namespace FallRecognition
         }
         void DrawLimb(Point A, Point B)
         {
-            double limit = 350; // Between 250 and 500??
+            double limit = 350; // MICHI: testing; Between 250 and 500??
             Line line = new Line();
             line.X1 = A.X;
             line.Y1 = A.Y;
@@ -621,7 +658,7 @@ namespace FallRecognition
 
         private void button3_Click(object sender, RoutedEventArgs e)
         {
-            this.Close();
+            FallRecognition.App.Current.Shutdown(0);
         }
 
         private void button1_Click(object sender, RoutedEventArgs e)
