@@ -64,6 +64,9 @@
     <Compile Include="angleSliderPanel.xaml.cs">
       <DependentUpon>angleSliderPanel.xaml</DependentUpon>
     </Compile>
+    <Compile Include="DebugWindow.xaml.cs">
+      <DependentUpon>DebugWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Properties\Settings.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
@@ -71,6 +74,10 @@
     </Compile>
     <Compile Include="Recogniton.cs" />
     <Page Include="angleSliderPanel.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="DebugWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
