@@ -38,30 +38,42 @@ namespace FallRecognition
             InitializeComponent();
         }
 
+        // Parameters
+        const float MaxDepthDistance = 4000; // max value returned
+        const float MinDepthDistance = 850; // min value returned
+        const float MaxDepthDistanceOffset = MaxDepthDistance - MinDepthDistance;
+
+        // External (reality) parameters
+        int kinectAngle = 0;
+        double kinectBaseInclination = 0;
+
         // Public vble initializations for MainWindow
         BackgroundWorker _worker = new BackgroundWorker();
         Runtime nui; //Kinect Runtime
+
+        // Image bitmaps and frames
         PlanarImage colorImage = new PlanarImage();
         ImageFrame currentDepthImageFrame = new ImageFrame();
         byte[] initialMaxDepthMatrix, initialMinDepthMatrix, currentDepthMatrix;
 
+        // Log and process variables
         double recognitionHeadDistance = 0;
         DateTime lastTime = DateTime.MaxValue;
         DateTime logTimeChecker = DateTime.MaxValue;
-        int kinectAngle = 0; int depthTrainingImages = 0;
-        // double kinectAdditionalInclination = 0;
+        int depthTrainingImages = 0;
+        int depthMode012 = 0;
 
+        // MICHI: Temp test
+        int minX = 1000;
+        int minY = 1000;
+        int maxX = 0;
+        int maxY = 0;
+
+        // Children windows
         DebugWindow dW = new DebugWindow();
 
-        // We want to control how depth data gets converted into false-color data
-        // for more intuitive visualization, so we keep 32-bit color frame buffer versions of
-        // these, to be updated whenever we receive and process a 16-bit frame.
-        const int RED_IDX = 2;
-        const int GREEN_IDX = 1;
-        const int BLUE_IDX = 0;
-
         // Every joint is assigned a color forming a "joint-colour" dictionary
-        Dictionary<JointID,Brush> jointColors = new Dictionary<JointID,Brush>() { 
+        Dictionary<JointID, Brush> jointColors = new Dictionary<JointID, Brush>() { 
             {JointID.HipCenter, new SolidColorBrush(Color.FromRgb(169, 176, 155))},
             {JointID.Spine, new SolidColorBrush(Color.FromRgb(169, 176, 155))},
             {JointID.ShoulderCenter, new SolidColorBrush(Color.FromRgb(168, 230, 29))},
@@ -88,6 +100,7 @@ namespace FallRecognition
         {
             SetupKinect();
             dW.Show();
+            this.Focus();
         }
 
         private void Window_Closed(object sender, EventArgs e)
@@ -129,16 +142,16 @@ namespace FallRecognition
             }
             else
             { // If there are Kinects, the setup begins
-                // Use first Kinect
+                // Always use only first Kinect
                 nui = Runtime.Kinects[0];
                 CompositionTarget.Rendering += new EventHandler(CompositionTarget_Rendering);
 
+                // Initialize skeletal tracking if possible
                 try
                 {
-                    // Initialize to do skeletal tracking
                     nui.Initialize(RuntimeOptions.UseDepthAndPlayerIndex | RuntimeOptions.UseSkeletalTracking | RuntimeOptions.UseColor);
-                        //nui.Initialize(RuntimeOptions.UseSkeletalTracking);
-                    enableSmoothness();
+                    //nui.Initialize(RuntimeOptions.UseSkeletalTracking);
+                    //                    enableSmoothness(); // MICHI: smoothness deactivated
                 }
                 catch (InvalidOperationException)
                 {
@@ -146,10 +159,10 @@ namespace FallRecognition
                     return;
                 }
 
+                // Initialize color and depth video streams if possible
                 try
                 {
                     nui.VideoStream.Open(ImageStreamType.Video, 2, ImageResolution.Resolution640x480, ImageType.Color);
-                //DepthAndPlayerIndex ImageType
                     nui.DepthStream.Open(ImageStreamType.Depth, 2, ImageResolution.Resolution320x240, ImageType.DepthAndPlayerIndex);
                 }
                 catch (InvalidOperationException)
@@ -176,6 +189,7 @@ namespace FallRecognition
 
         void CompositionTarget_Rendering(object sender, EventArgs e)
         {
+            // This had always been commented... *-)
             /*
             if (!_worker.IsBusy)
             {
@@ -198,6 +212,7 @@ namespace FallRecognition
 
         #region depth
 
+        #region depth events
         // "nui_FirstDepthFrame" reads the first image to first prepare the background segmentation
         void nui_FirstDepthFrame(object sender, ImageFrameReadyEventArgs e)
         {
@@ -290,6 +305,8 @@ namespace FallRecognition
             return colorFrame;
         }
 
+        #endregion depth events
+
         private byte[] GenerateDepthBytes(ImageFrame imageFrame)
         {
             int height = imageFrame.Image.Height;
@@ -329,10 +346,6 @@ namespace FallRecognition
             return distance;
         }
 
-        const float MaxDepthDistance = 4000; // max value returned
-        const float MinDepthDistance = 850; // min value returned
-        const float MaxDepthDistanceOffset = MaxDepthDistance - MinDepthDistance;
-
         private byte CalculateIntensityFromDepth(int distance)
         {
             //formula for calculating monochrome intensity for histogram
@@ -340,46 +353,127 @@ namespace FallRecognition
                 / (MaxDepthDistanceOffset)));
         }
 
+        private static int GetPlayerIndex(byte firstFrame)
+        {
+            //returns 0 = no player, 1 = 1st player, 2 = 2nd player...
+            //bitwise & on firstFrame
+            return (int)firstFrame & 7;
+        }
+
         private void eraseBackground(int bpp, int colorImageLength, PlanarImage depthImage)
         {
-            for (int i = 0; i < colorImageLength; i++)
-            {
-                int x = i % colorImage.Width;
-                int y = i / colorImage.Width;
-                // Escalado // Resize :
-                x = (int)(x * ((double)depthImage.Width / colorImage.Width));
-                y = (int)(y * ((double)depthImage.Height / colorImage.Height));
-                int index = y * depthImage.Width + x;
+            // Old escalable and cool but yet to fix way
+            /*
+                        for (int i = 0; i < colorImageLength; i++)
+                        {
 
-                if ((currentDepthMatrix[index] < 15) || ((currentDepthMatrix[index] < initialMaxDepthMatrix[index] + 10) && (currentDepthMatrix[index] > initialMinDepthMatrix[index] - 10)))
+                            int x = i % colorImage.Width;
+                            int y = i / colorImage.Width;
+                            // Resize :
+                            x = (int)(x * ((double)depthImage.Width / colorImage.Width));
+                            y = (int)(y * ((double)depthImage.Height / colorImage.Height));
+                            int index = y * depthImage.Width + x;
+                            if ((currentDepthMatrix[index] > 250))
+                                currentDepthMatrix[index] = 0;
+                            if ((currentDepthMatrix[index] > 250) || ((currentDepthMatrix[index] < initialMaxDepthMatrix[index] + 10) && (currentDepthMatrix[index] > initialMinDepthMatrix[index] - 10)))
+                            {
+                                colorImage.Bits[i * bpp] = colorImage.Bits[i * bpp + 1] = colorImage.Bits[i * bpp + 2] = 0;
+                            }
+                        }
+             */
+            // New (yet-more) cool and robust seem
+            int depthMaxIndex = (currentDepthImageFrame.Image.Width * currentDepthImageFrame.Image.Height);
+            for (int i = 0; i < depthMaxIndex; i++)
+            {
+                if (GetPlayerIndex(currentDepthImageFrame.Image.Bits[i * 2]) > 0)
+                    currentDepthMatrix[i] = 255;
+                else
                 {
-//                    colorImage.Bits[i * bpp] = colorImage.Bits[i * bpp + 1] = colorImage.Bits[i * bpp + 2] = 0;
-                    currentDepthMatrix[index]=0;
+                    currentDepthMatrix[i] = 0;
+                    Point colorPoint = getColorMatrixPosition(i);
+                    for (int j = -1; j < 2; j++)
+                    {
+                        for (int k = 0; k < 3; k++)
+                        {
+                            colorImage.Bits[(int)((colorPoint.X + j + colorPoint.Y * colorImage.Width) * bpp) + k] = 0;
+                        }
+                    }
                 }
+                /*
+                // MICHI: REALLY VERY INTERESTING: with this it is possible to see the matrix which corresponds to the color image!!!
+                    Point colorPoint = getColorMatrixPosition(i);
+                colorImage.Bits[(int)((colorPoint.X + colorPoint.Y * colorImage.Width) * bpp)] = 0;
+                colorImage.Bits[(int)((colorPoint.X + colorPoint.Y * colorImage.Width) * bpp)+1] = 0;
+                colorImage.Bits[(int)((colorPoint.X + colorPoint.Y * colorImage.Width) * bpp)+2] = 0;
+                 */
             }
-            dW.debugImage.Source = BitmapSource.Create(320, 240, 96, 96, PixelFormats.Gray8, null,
-                            currentDepthMatrix, 320 * PixelFormats.Gray8.BitsPerPixel / 8);
+            /*
+                        depthMode012 = 0;
+                        switch (depthMode012)
+                        {
+                            case 0:
+                                        dW.debugImage.Source = BitmapSource.Create(320, 240, 96, 96, PixelFormats.Gray8, null,
+                                            currentDepthMatrix, 320 * PixelFormats.Gray8.BitsPerPixel / 8);
+                                        break;
+                            case 1:
+                                        dW.debugImage.Source = BitmapSource.Create(320, 240, 96, 96, PixelFormats.Gray8, null,
+                                            initialMinDepthMatrix, 320 * PixelFormats.Gray8.BitsPerPixel / 8);
+                                        break;
+                            case 2:
+                                        dW.debugImage.Source = BitmapSource.Create(320, 240, 96, 96, PixelFormats.Gray8, null,
+                                            initialMaxDepthMatrix, 320 * PixelFormats.Gray8.BitsPerPixel / 8);
+                                        break;
+                            default:
+                                break;
+                        }
+             */
         }
 
 
         #endregion depth
 
 
-        private Point getDisplayPosition(Joint joint)
-        {
-            float depthX, depthY;
+        #region skeleton management
 
-            nui.SkeletonEngine.SkeletonToDepthImage(joint.Position, out depthX, out depthY);
+        // Receives the just the depth pixel index
+        private Point getColorMatrixPosition(int depthIndex)
+        {
+            // Convert to 320, 240 space
+            float depthX = depthIndex % 320;
+            float depthY = depthIndex / 320;
+            int colorX, colorY;
+            ImageViewArea iv = new ImageViewArea();
+
+            // Only ImageResolution.Resolution640x480 is supported at this point
+            nui.NuiCamera.GetColorPixelCoordinatesFromDepthPixel(ImageResolution.Resolution640x480, iv, (int)depthX, (int)depthY, (short)0, out colorX, out colorY);
+
+            // Map back to skeletonCanvas.Width & skeletonCanvas.Height
+            return new Point((int)(colorX), (int)(colorY));
+        }
+
+        // Receives the RAW depthX and Y (no the 320x240 one)
+        private Point getDisplayPosition(float depthX, float depthY)
+        {
             // Convert to 320, 240 space
             depthX = depthX * 320;
             depthY = depthY * 240;
             int colorX, colorY;
             ImageViewArea iv = new ImageViewArea();
+
             // Only ImageResolution.Resolution640x480 is supported at this point
             nui.NuiCamera.GetColorPixelCoordinatesFromDepthPixel(ImageResolution.Resolution640x480, iv, (int)depthX, (int)depthY, (short)0, out colorX, out colorY);
 
             // Map back to skeletonCanvas.Width & skeletonCanvas.Height
             return new Point((int)(skeletonCanvas.Width * colorX / 640.0), (int)(skeletonCanvas.Height * colorY / 480));
+        }
+
+
+        private Point getDisplayPosition(Joint joint)
+        {
+            float depthX, depthY;
+            nui.SkeletonEngine.SkeletonToDepthImage(joint.Position, out depthX, out depthY);
+
+            return getDisplayPosition(depthX, depthY);
         }
 
         private Point getDisplayPosition(Microsoft.Research.Kinect.Nui.Vector mainPoint)
@@ -414,9 +508,6 @@ namespace FallRecognition
             return polyline;
         }
 
-
-        #region event handlers
-
         void nui_SkeletonFrameReady(object sender, SkeletonFrameReadyEventArgs e)
         {
             Dispatcher.BeginInvoke((Action)delegate
@@ -426,11 +517,11 @@ namespace FallRecognition
                     eraseBackground(colorImage.BytesPerPixel, colorImage.Height * colorImage.Width, currentDepthImageFrame.Image);
                     imgCamera.Source = BitmapSource.Create(
                       colorImage.Width, colorImage.Height, 194, 194, PixelFormats.Bgr32, null, colorImage.Bits, colorImage.Width * colorImage.BytesPerPixel);
-                    //imgCamera.Source = BitmapSource.Create(currentDepthImageFrame.Image.Width, currentDepthImageFrame.Image.Height, 96, 96, PixelFormats.Bgr32, null,
-                    //  currentDepthMatrix, currentDepthImageFrame.Image.Width * PixelFormats.Bgr32.BitsPerPixel / 8);
-                    
+                    dW.debugImage.Source = BitmapSource.Create(320, 240, 96, 96, PixelFormats.Gray8, null,
+                        currentDepthMatrix, 320 * PixelFormats.Gray8.BitsPerPixel / 8);
+
                 }
-                
+
                 SkeletonFrame allSkeletons = e.SkeletonFrame;
 
                 skeletonCanvas.Children.Clear();
@@ -481,6 +572,27 @@ namespace FallRecognition
                         DrawCircle(rightHip, userColor);
                         DrawCircle(rightKnee, userColor);
                         DrawCircle(rightFoot, userColor);
+
+                        // MICHI: temp test
+                        /*                        if (minX > rightHand.X)
+                                                    minX = (int)rightHand.X;
+                                                else if (maxX < rightHand.X)
+                                                    maxX = (int)rightHand.X;
+                                                if (minY > rightHand.Y)
+                                                    minY = (int)rightHand.Y;
+                                                else if (maxY < rightHand.Y)
+                                                    maxY = (int)rightHand.Y;
+                                                Point leftUpperPoint = new Point(minX, maxY);
+                                                Point rightUpperPoint = new Point(maxX, maxY);
+                                                Point leftLowerPoint = new Point(minX, minY);
+                                                Point rightLowerPoint = new Point(maxX, minY);
+                                                DrawLimb(leftUpperPoint, rightUpperPoint);
+                                                DrawLimb(leftLowerPoint, rightLowerPoint);
+                                                */
+
+                        Point lfUpPt = getDisplayPosition(0, 0);
+                        Point rgDownPt = getDisplayPosition(1, 1);
+                        DrawLimb(lfUpPt, rgDownPt);
 
                         DrawLimb(head, neck);
 
@@ -541,7 +653,7 @@ namespace FallRecognition
             });
         }
 
-        #endregion event handlers
+        #endregion skeleton management
 
         #region Private state
         const int maxKinectCount = 1; //Change to 1 if you only want to view one at a time. Switching will be enabled.
@@ -651,9 +763,12 @@ namespace FallRecognition
 
         private void button2_Click(object sender, RoutedEventArgs e)
         {
-            angleSliderPanel asp = new angleSliderPanel(nui, kinectAngle);
+            angleSliderPanel asp = new angleSliderPanel(nui, kinectBaseInclination);
             if (asp.ShowDialog().HasValue)
+            {
                 kinectAngle = (int)asp.selectedAngle;
+                kinectBaseInclination = asp.selectedBaseInclination;
+            }
         }
 
         private void button3_Click(object sender, RoutedEventArgs e)
