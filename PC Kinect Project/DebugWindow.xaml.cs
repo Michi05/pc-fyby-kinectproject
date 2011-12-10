@@ -25,7 +25,11 @@ namespace FallRecognition
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-                
+
+        }
+
+        private void button1_Click(object sender, RoutedEventArgs e)
+        {
         }
     }
 }
