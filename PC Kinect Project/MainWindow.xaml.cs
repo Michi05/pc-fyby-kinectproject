@@ -68,6 +68,7 @@ namespace FallRecognition
         int minY = 1000;
         int maxX = 0;
         int maxY = 0;
+        Point cloudCentroid = new Point(0, 0);
 
         // Children windows
         DebugWindow dW = new DebugWindow();
@@ -360,7 +361,7 @@ namespace FallRecognition
             return (int)firstFrame & 7;
         }
 
-        private void eraseBackground(int bpp, int colorImageLength, PlanarImage depthImage)
+        private void processBackground(int bpp, int colorImageLength, PlanarImage depthImage)
         {
             // Old escalable and cool but yet to fix way
             /*
@@ -381,12 +382,20 @@ namespace FallRecognition
                             }
                         }
              */
+            Point tempCentroid = new Point(0, 0);
+            int numberOfPointsInCloud = 0;
             // New (yet-more) cool and robust seem
             int depthMaxIndex = (currentDepthImageFrame.Image.Width * currentDepthImageFrame.Image.Height);
             for (int i = 0; i < depthMaxIndex; i++)
             {
                 if (GetPlayerIndex(currentDepthImageFrame.Image.Bits[i * 2]) > 0)
+                {
+                // Adding the centroid calculation
+                    numberOfPointsInCloud++;
+                    tempCentroid.X += i % currentDepthImageFrame.Image.Width;
+                    tempCentroid.Y += i / currentDepthImageFrame.Image.Width;
                     currentDepthMatrix[i] = 255;
+                }
                 else
                 {
                     currentDepthMatrix[i] = 0;
@@ -427,6 +436,14 @@ namespace FallRecognition
                                 break;
                         }
              */
+
+            // If the centroid have been calculated:
+            if (numberOfPointsInCloud > 0)
+            {
+                tempCentroid.X = tempCentroid.X / numberOfPointsInCloud;
+                tempCentroid.Y = tempCentroid.Y / numberOfPointsInCloud;
+                cloudCentroid = getDisplayPosition((float)tempCentroid.X / 320, (float)tempCentroid.Y / 240);
+            }
         }
 
 
@@ -514,12 +531,11 @@ namespace FallRecognition
             {
                 if (currentDepthMatrix != null && colorImage.Width != 0)
                 {
-                    eraseBackground(colorImage.BytesPerPixel, colorImage.Height * colorImage.Width, currentDepthImageFrame.Image);
+                    processBackground(colorImage.BytesPerPixel, colorImage.Height * colorImage.Width, currentDepthImageFrame.Image);
                     imgCamera.Source = BitmapSource.Create(
                       colorImage.Width, colorImage.Height, 194, 194, PixelFormats.Bgr32, null, colorImage.Bits, colorImage.Width * colorImage.BytesPerPixel);
                     dW.debugImage.Source = BitmapSource.Create(320, 240, 96, 96, PixelFormats.Gray8, null,
                         currentDepthMatrix, 320 * PixelFormats.Gray8.BitsPerPixel / 8);
-
                 }
 
                 SkeletonFrame allSkeletons = e.SkeletonFrame;
@@ -589,10 +605,11 @@ namespace FallRecognition
                                                 DrawLimb(leftUpperPoint, rightUpperPoint);
                                                 DrawLimb(leftLowerPoint, rightLowerPoint);
                                                 */
-
                         Point lfUpPt = getDisplayPosition(0, 0);
                         Point rgDownPt = getDisplayPosition(1, 1);
                         DrawLimb(lfUpPt, rgDownPt);
+                        DrawCentroid(cloudCentroid, Color.FromRgb(255, 0, 0));
+
 
                         DrawLimb(head, neck);
 
@@ -676,6 +693,17 @@ namespace FallRecognition
             });
         }
 
+        void DrawCentroid(Point A, Color color)
+        {
+            Ellipse ellipse = new Ellipse
+            {
+                Fill = new SolidColorBrush(color),
+                Width = 15,
+                Height = 15,
+                Margin = new Thickness(A.X, A.Y, 0, 0)
+            };
+            skeletonCanvas.Children.Add(ellipse);
+        }
         void DrawCircle(Point A, Color color)
         {
             Ellipse ellipse = new Ellipse
