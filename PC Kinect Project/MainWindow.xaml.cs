@@ -390,7 +390,7 @@ namespace FallRecognition
             {
                 if (GetPlayerIndex(currentDepthImageFrame.Image.Bits[i * 2]) > 0)
                 {
-                // Adding the centroid calculation
+                    // Adding the centroid calculation
                     numberOfPointsInCloud++;
                     tempCentroid.X += i % currentDepthImageFrame.Image.Width;
                     tempCentroid.Y += i / currentDepthImageFrame.Image.Width;
@@ -789,6 +789,98 @@ namespace FallRecognition
 
         #endregion fall evaluation
 
+        #region communication
+
+        // Function for inquiring the state of the shimmer.
+        // Returns: 0 if everything is ok (that is correctly read and no fall)
+        //          1 if there was a fall in the las 'T' time (T is an external parameter of the shimmer)
+        //          -1 if there was an error while trying to find out the state
+        public int readShimmerState()
+        {
+            try
+            {
+                return shimmerStateFromFile();
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine("Exception in readShimmerState: {0}", exception.ToString());
+                return -1;
+            }
+            return -1; // Unreachable line; it is there for safety after maintenance
+        }
+
+        // Function for reading the shimmer state file.
+        // Returns: 0 if everything is ok (that is correctly read and no fall)
+        //          1 if there was a fall in the las 'T' time (T is an external parameter of the shimmer)
+        //          -1 if there was an error while trying to find out the state
+        public int shimmerStateFromFile()
+        {
+            byte[] stateFileData;
+            try
+            {
+                stateFileData = ReadFile(".\\shimmerStateExample.txt");
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine("Exception in shimmerStateFromFile: {0}", exception.ToString());
+                return -1;
+            }
+            if (stateFileData[0] == 0 || stateFileData[0] == '0')
+                return 0;
+            else if (stateFileData[0] == 1 || stateFileData[0] == '1')
+                return 1;
+            return -1;
+        }
+
+        // Generic file reader method
+        // I'll try to use this for better modularity even though it would be easier to implement the shimmer state from here
+        // Returns: a buffer with (hopefully) all the data in the file
+        public byte[] ReadFile(string filePath)
+        {
+            byte[] buffer;
+            FileStream fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+            try
+            {
+                int length = (int)fileStream.Length;  // get file length
+                buffer = new byte[length];            // create buffer
+                int count;                            // actual number of bytes read
+                int sum = 0;                          // total number of bytes read
+
+                // read until Read method returns 0 (end of the stream has been reached)
+                while ((count = fileStream.Read(buffer, sum, length - sum)) > 0)
+                    sum += count;  // sum is a buffer offset for next reading
+            }
+            finally
+            {
+                fileStream.Close();
+            }
+            return buffer;
+        }
+
+        // Function for calling the caregiver throw Skype
+        // In a final version this should be done with a video call but that is out of the current scope
+        // Returns: true if the application was correctly executed (no guarantee that the call was a success)
+        //          false if the execution failed.
+        public bool callCaregiver()
+        {
+            System.Diagnostics.Process proc = new System.Diagnostics.Process();
+            proc.EnableRaisingEvents = false;
+            proc.StartInfo.FileName = "C:\\Program Files (x86)\\Skype\\Phone\\Skype.exe";
+            proc.StartInfo.Arguments = "/callto:echo123";
+            try
+            {
+                proc.Start();
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine("Exception in callCaregiver: {0}", exception.ToString());
+                return false;
+            }
+            return true;
+        }
+
+        #endregion communication
+
         private void button2_Click(object sender, RoutedEventArgs e)
         {
             angleSliderPanel asp = new angleSliderPanel(nui, kinectBaseInclination);
@@ -808,6 +900,24 @@ namespace FallRecognition
         {
             nui.DepthFrameReady -= new EventHandler<ImageFrameReadyEventArgs>(nui_DepthFrameReady);
             nui.DepthFrameReady += new EventHandler<ImageFrameReadyEventArgs>(nui_FirstDepthFrame);
+        }
+
+        private void button4_Click(object sender, RoutedEventArgs e)
+        {
+            MessageBox.Show("In the file, it was read the number: " + readShimmerState().ToString());
+            /*            System.Diagnostics.Process proc = new System.Diagnostics.Process();
+                        proc.EnableRaisingEvents = false;
+                        proc.StartInfo.FileName = "C:\\Program Files (x86)\\Skype\\Phone\\Skype.exe";
+                        proc.StartInfo.Arguments = "/callto:echo123";
+                        try
+                        {
+                            proc.Start();
+                        }
+                        catch (Exception exception)
+                        {
+                            Console.WriteLine("Exception: {0}", exception.ToString());
+                        }
+                        */
         }
     }
 }
