@@ -3,15 +3,17 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="User tracking with Microsoft SDK" Height="719" Width="862" Loaded="Window_Loaded" DataContext="{Binding}">
     <DockPanel LastChildFill="True">
-        
+
         <StatusBar Name="statusBar"  MinHeight="40" DockPanel.Dock="Bottom">
             <StatusBarItem>
-                <TextBlock Name="textBlock" Background="LemonChiffon" FontSize='10'> Ready </TextBlock>
+                <TextBlock Name="textBlock" Background="LemonChiffon" FontSize='10'> Ready</TextBlock>
             </StatusBarItem>
         </StatusBar>
         <Grid DockPanel.Dock="Top">
             <Image Name="imgCamera" Width="820" ClipToBounds="True" Margin="10,0" />
-            <Canvas Width="820" Height="510" Name="skeletonCanvas"   ClipToBounds="True"></Canvas>
+            <Canvas Width="820" Height="510" Name="skeletonCanvas"   ClipToBounds="True">
+                <Button Canvas.Left="252" Canvas.Top="443" Content="Button" Height="23" Name="button4" Width="75" Click="button4_Click" />
+            </Canvas>
             <Button Content="Tilt Camera" Name="button2" Height="28" Width="142" Margin="65,592,633,20" Click="button2_Click" />
             <Button Content="Update... Background?" Height="28" Width="142" Margin="334,592,364,20" Name="button1" Click="button1_Click" />
             <Button Content="Close everything" Name="button3" Height="28" Width="142" Margin="600,592,98,20" Click="button3_Click" />
